@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>M3U8 Player All-In-One</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+
+<style>
+    body { margin:0; background:#000; font-family:Arial, sans-serif; }
+    #container { position:relative; width:100%; height:100vh; background:#000; }
+    video { width:100%; height:100%; background:#000; }
+
+    /* Control Bar */
+    #controls {
+        position:absolute; left:0; right:0; bottom:0;
+        background:rgba(0,0,0,0.45);
+        display:flex; align-items:center;
+        padding:10px; gap:10px;
+    }
+    button {
+        background:#fff; border:none;
+        padding:6px 12px; border-radius:6px;
+        cursor:pointer; font-size:14px;
+    }
+    #progress {
+        flex:1; height:6px;
+        background:#555; border-radius:4px;
+        cursor:pointer; position:relative;
+    }
+    #bar {
+        height:100%; width:0%;
+        background:#ff4444; border-radius:4px;
+    }
+
+    /* Subtitle Style */
+    video::cue {
+        background:rgba(0,0,0,0.6);
+        color:#fff;
+        font-size:20px;
+    }
+</style>
+</head>
+
+<body>
+
+<div id="container">
+    <video id="video" controls autoplay></video>
+
+    <div id="controls">
+        <button id="play">Play</button>
+        <div id="progress"><div id="bar"></div></div>
+        <button onclick="video.requestFullscreen()">⛶</button>
+    </div>
+</div>
+
+<script>
+// --- GET PARAMS ---
+const params = new URLSearchParams(location.search);
+const url = params.get("url");              // M3U8 link
+const sub = params.get("sub");              // Subtitle link (vtt/srt)
+const playlist = params.get("playlist");    // Playlist: url1,url2,url3
+let index = parseInt(params.get("i") || 0); // Current episode index
+
+// --- SETUP VIDEO ---
+const video = document.getElementById("video");
+const playBtn = document.getElementById("play");
+const bar = document.getElementById("bar");
+
+// --- LOAD M3U8 ---
+function loadM3U8(source) {
+    if (Hls.isSupported()) {
+        const hls = new Hls();
+        hls.loadSource(source);
+        hls.attachMedia(video);
+    } else video.src = source;
+}
+
+// --- SUBTITLE SUPPORT ---
+if (sub) {
+    let track = document.createElement("track");
+    track.kind = "subtitles";
+    track.label = "VI";
+    track.default = true;
+    track.src = sub;
+    video.appendChild(track);
+}
+
+// --- LOAD NORMAL OR PLAYLIST ---
+if (playlist) {
+    const list = playlist.split(",");
+    if (index >= list.length) index = 0;
+    loadM3U8(list[index]);
+
+    video.onended = () => {
+        index++;
+        if (index < list.length) {
+            location.href =
+                location.pathname +
+                "?playlist=" + playlist +
+                "&i=" + index +
+                (sub ? "&sub=" + sub : "");
+        }
+    };
+} else {
+    loadM3U8(url);
+}
+
+// --- PLAY BUTTON ---
+playBtn.onclick = () => {
+    if (video.paused) {
+        video.play();
+        playBtn.innerText = "Pause";
+    } else {
+        video.pause();
+        playBtn.innerText = "Play";
+    }
+};
+
+// --- PROGRESS BAR ---
+video.ontimeupdate = () => {
+    if (!video.duration) return;
+    bar.style.width = (video.currentTime / video.duration) * 100 + "%";
+};
+</script>
+
+</body>
+</html>
